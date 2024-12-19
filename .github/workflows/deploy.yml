@@ -3,7 +3,7 @@ name: Deploy WAR to Tomcat
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   deploy:
@@ -18,8 +18,8 @@ jobs:
       - name: Detect Changed .war Files
         id: detect_changes
         run: |
-          # Find all .war files changed in the latest commit
-          changed_files=$(git diff --name-only HEAD^ HEAD | grep -E "\.war$")
+          # Detect changed .war files
+          changed_files=$(git diff --name-only $(git rev-parse HEAD^) HEAD 2>/dev/null || git diff --name-only HEAD)
           echo "Changed files: $changed_files"
           if [ -z "$changed_files" ]; then
             echo "No .war files to deploy."
