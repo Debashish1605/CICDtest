@@ -42,7 +42,7 @@ jobs:
             FILENAME=$(basename $WAR_FILE)
 
             # SSH into the server to check the list of already deployed files
-            DEPLOYED_FILES=$(ssh -o StrictHostKeyChecking=no ubuntu@54.161.132.40 "cd /home/ubuntu/apache-tomcat-10.1.34/webapps/ && ls -1 *.war")
+            DEPLOYED_FILES=$(ssh -o StrictHostKeyChecking=no ubuntu@54.161.132.40 "cd /home/ubuntu/apache-tomcat-10.1.34/webapps/ && ls -l *.war")
 
             # Check if this WAR file is already deployed
             if echo "$DEPLOYED_FILES" | grep -q "$FILENAME"; then
