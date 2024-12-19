@@ -38,29 +38,20 @@ jobs:
       # Step 5: Deploy new or modified WAR files
       - name: Deploy new or modified WAR files
         run: |
-          # SSH into the server to check the list of already deployed files
-          ssh -o StrictHostKeyChecking=no ubuntu@54.161.132.40 << 'EOF'
-            cd /home/ubuntu/apache-tomcat-10.1.34/webapps/
-            # List deployed WAR files and save to a file
-            ls -1 *.war > deployed_files.txt
-            cat deployed_files.txt
-          EOF
-
-          # Loop through all WAR files found in the repository
           for WAR_FILE in $WAR_FILES; do
             FILENAME=$(basename $WAR_FILE)
-            
+
+            # SSH into the server to check the list of already deployed files
+            DEPLOYED_FILES=$(ssh -o StrictHostKeyChecking=no ubuntu@54.161.132.40 "cd /home/ubuntu/apache-tomcat-10.1.34/webapps/ && ls -1 *.war")
+
             # Check if this WAR file is already deployed
-            DEPLOYED_FILES=$(ssh -o StrictHostKeyChecking=no ubuntu@54.161.132.40 "cat /home/ubuntu/apache-tomcat-10.1.34/webapps/deployed_files.txt")
-            
             if echo "$DEPLOYED_FILES" | grep -q "$FILENAME"; then
               echo "$FILENAME already deployed. Checking if it is modified."
 
               # If it's deployed, check if the WAR file is modified (based on the timestamp or hash)
-              # First, compare the hashes (optional, can be replaced with timestamp checks)
               LOCAL_HASH=$(sha256sum "$WAR_FILE" | cut -d ' ' -f 1)
               REMOTE_HASH=$(ssh -o StrictHostKeyChecking=no ubuntu@54.161.132.40 "sha256sum /home/ubuntu/apache-tomcat-10.1.34/webapps/$FILENAME | cut -d ' ' -f 1")
-              
+
               if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
                 echo "Modified WAR file detected. Re-deploying."
 
@@ -91,7 +82,7 @@ jobs:
               # If not deployed, deploy the new WAR file
               echo "Deploying new WAR file: $FILENAME"
               scp -o StrictHostKeyChecking=no "$WAR_FILE" ubuntu@54.161.132.40:/home/ubuntu/apache-tomcat-10.1.34/webapps/
-              
+
               # Restart Tomcat and verify the deployment
               ssh -o StrictHostKeyChecking=no ubuntu@54.161.132.40 << EOF
                 cd /home/ubuntu/apache-tomcat-10.1.34
@@ -99,7 +90,7 @@ jobs:
                 ./bin/startup.sh
                 ls -l /home/ubuntu/apache-tomcat-10.1.34/webapps/
               EOF
-              
+
               # Add the newly deployed WAR file to the list
               ssh -o StrictHostKeyChecking=no ubuntu@54.161.132.40 << EOF
                 echo "$FILENAME" >> /home/ubuntu/apache-tomcat-10.1.34/webapps/deployed_files.txt
