@@ -1,0 +1,58 @@
+name: Deploy WAR to Tomcat
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Step 2: Detect Changed .war Files
+      - name: Detect Changed .war Files
+        id: detect_changes
+        run: |
+          # Find all .war files changed in the latest commit
+          changed_files=$(git diff --name-only HEAD^ HEAD | grep -E "\.war$")
+          echo "Changed files: $changed_files"
+          if [ -z "$changed_files" ]; then
+            echo "No .war files to deploy."
+            exit 0
+          fi
+          echo "::set-output name=files::$changed_files"
+
+      # Step 3: Deploy WAR Files to Tomcat Server
+      - name: Deploy to Tomcat
+        if: steps.detect_changes.outputs.files != ''
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          # Configure SSH
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # For each changed .war file
+          for war_file in ${{ steps.detect_changes.outputs.files }}; do
+            # Extract file name
+            war_name=$(basename "$war_file")
+
+            echo "Deploying $war_name to Tomcat server..."
+
+            # Remove old files and directories
+            ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@54.161.132.40 "
+              rm -f ~/apache-tomcat-10.1.34/webapps/$war_name
+              rm -rf ~/apache-tomcat-10.1.34/webapps/${war_name%.war}
+            "
+
+            # Copy the new .war file
+            scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "$war_file" ubuntu@54.161.132.40:~/apache-tomcat-10.1.34/webapps/
+
+            echo "Deployment of $war_name completed."
+          done
