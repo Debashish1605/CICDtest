@@ -13,23 +13,26 @@ jobs:
       # Step 1: Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
 
       # Step 2: Detect Changed .war Files
       - name: Detect Changed .war Files
         id: detect_changes
         run: |
           # Detect changed .war files
-          changed_files=$(git diff --name-only $(git rev-parse HEAD^) HEAD 2>/dev/null || git diff --name-only HEAD)
+          changed_files=$(git diff --name-only HEAD^ HEAD | grep '\.war$' || true)
           echo "Changed files: $changed_files"
           if [ -z "$changed_files" ]; then
             echo "No .war files to deploy."
+            echo "::set-output name=files::"
             exit 0
           fi
           echo "::set-output name=files::$changed_files"
 
       # Step 3: Deploy WAR Files to Tomcat Server
       - name: Deploy to Tomcat
-        if: steps.detect_changes.outputs.files != ''
+        if: steps.detect_changes.outputs.files != '' && steps.detect_changes.outputs.files != null
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
